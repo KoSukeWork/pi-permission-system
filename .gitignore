@@ -1,4 +1,8 @@
 node_modules
-dist
+dist/*
 .DS_Store
 *.log
+
+# Keep compiled extension entrypoints (git install has no build step)
+!dist/*.js
+!**/dist/*.js
