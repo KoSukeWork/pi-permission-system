@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import {
   loadUnifiedConfig,
@@ -134,6 +135,8 @@ export interface PolicyLoaderOptions {
   projectAgentsDir?: string;
   globalMcpConfigPath?: string;
   mcpServerNames?: readonly string[];
+  /** Packaged fallback used only when the user global config file is missing. */
+  packagedDefaultConfigPath?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +154,7 @@ export class FilePolicyLoader implements PolicyLoader {
   private readonly projectAgentsDir: string | null;
   private readonly globalMcpConfigPath: string;
   private readonly configuredMcpServerNamesOverride: readonly string[] | null;
+  private readonly packagedDefaultConfigPath: string | null;
 
   private globalConfigCache: FileCacheEntry<ScopeConfig> | null = null;
   private projectGlobalConfigCache: FileCacheEntry<ScopeConfig> | null = null;
@@ -175,6 +179,10 @@ export class FilePolicyLoader implements PolicyLoader {
     this.projectAgentsDir = options.projectAgentsDir ?? null;
     this.globalMcpConfigPath =
       options.globalMcpConfigPath ?? defaultGlobalMcpConfigPath();
+    this.packagedDefaultConfigPath =
+      options.packagedDefaultConfigPath === undefined
+        ? join(dirname(fileURLToPath(import.meta.url)), "..", "config", "config.default.json")
+        : options.packagedDefaultConfigPath;
     this.configuredMcpServerNamesOverride = options.mcpServerNames
       ? [
           ...new Set(
@@ -208,7 +216,11 @@ export class FilePolicyLoader implements PolicyLoader {
       return this.globalConfigCache.value;
     }
 
-    const { config, issues } = loadUnifiedConfig(this.globalConfigPath);
+    const sourcePath =
+      existsSync(this.globalConfigPath) || !this.packagedDefaultConfigPath
+        ? this.globalConfigPath
+        : this.packagedDefaultConfigPath;
+    const { config, issues } = loadUnifiedConfig(sourcePath);
     this.accumulateConfigIssues(issues);
 
     const value: ScopeConfig = {

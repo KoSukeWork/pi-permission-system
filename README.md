@@ -34,24 +34,31 @@ pi install npm:@gotgenes/pi-permission-system
 
 ## Quick Start
 
-1. Create the global config file at `~/.pi/agent/extensions/pi-permission-system/config.json`:
+1. Optional: copy or edit `~/.pi/agent/extensions/pi-permission-system/config.json`.
+   With no user file, the package default is used: allow ordinary work, **ask** before leaving the workspace, deleting files (`rm`/`del`), `sudo`, `.env`, `~/.ssh/*`, or `settings.json`. Nothing is denied by default.
 
     ```jsonc
     {
+      "yoloMode": false,
+      "authorizerChain": [],
       "permission": {
         "*": "allow",
         "path": {
           "*": "allow",
-          "*.env": "deny",
-          "*.env.*": "deny",
-          "*.env.example": "allow"
+          "*.env": "ask",
+          "*.env.*": "ask",
+          "*.env.example": "allow",
+          "~/.ssh/*": "ask",
+          "~/.pi/agent/settings.json": "ask"
         },
+        "external_directory": "ask",
         "bash": {
-          "*": "ask",
-          "rm -rf *": "deny",
+          "*": "allow",
+          "rm *": "ask",
+          "rm -rf *": "ask",
+          "del *": "ask",
           "sudo *": "ask"
-        },
-        "external_directory": "ask"
+        }
       }
     }
     ```

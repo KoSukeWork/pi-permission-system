@@ -55,13 +55,24 @@ describe("FilePolicyLoader.loadGlobalConfig", () => {
     }
   });
 
-  it("returns empty ScopeConfig when config file is missing", () => {
+  it("returns empty ScopeConfig when config file is missing and packaged default is disabled", () => {
+    const loader = new FilePolicyLoader({
+      globalConfigPath: "/nonexistent/config.json",
+      agentsDir: "/nonexistent/agents",
+      packagedDefaultConfigPath: null,
+    });
+    const config = loader.loadGlobalConfig();
+    expect(config.permission).toBeUndefined();
+  });
+
+  it("loads the packaged default when the user config file is missing", () => {
     const loader = new FilePolicyLoader({
       globalConfigPath: "/nonexistent/config.json",
       agentsDir: "/nonexistent/agents",
     });
     const config = loader.loadGlobalConfig();
-    expect(config.permission).toBeUndefined();
+    expect(config.permission?.["*"]).toBe("allow");
+    expect(config.permission?.external_directory).toBe("ask");
   });
 
   it("returns empty ScopeConfig when config file has no permission key", () => {
