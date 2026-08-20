@@ -14,9 +14,9 @@
     "external_directory": "ask",
     "bash": {
       "*": "allow",
-      "rm *": "ask",
+      "rm -r *": "ask",
       "rm -rf *": "ask",
-      "del *": "ask",
+      "rm -fr *": "ask",
       "sudo *": "ask"
     }
   }
