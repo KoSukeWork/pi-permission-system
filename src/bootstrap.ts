@@ -3,6 +3,12 @@ import { installDeferred } from "./lazy-extension.js";
 
 export default function (pi: ExtensionAPI) {
 	installDeferred(pi, () => import("./index.js"), {
-		commands: [{ name: "permission-system", description: "Configure the permission system" }],
+		commands: [
+			{
+				name: "permission-system",
+				description: "Configure the permission system",
+				completions: ["show", "path", "reset", "help"],
+			},
+		],
 	});
 }
