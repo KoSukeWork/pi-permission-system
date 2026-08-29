@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Deferred runtime install failures now include the first load error (for example a missing dependency) instead of reporting only a missing factory, and a factory that already started executing is never re-run.
 - Retry transient deferred module imports with bounded backoff and clear failed attempts so later lifecycle events can load the extension.
 
 ## [26.3.4] - 2026-08-20
