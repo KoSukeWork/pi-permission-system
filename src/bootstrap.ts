@@ -10,5 +10,6 @@ export default function (pi: ExtensionAPI) {
 				completions: ["show", "path", "reset", "help"],
 			},
 		],
+		startupEvents: ["resources_discover"],
 	});
 }
