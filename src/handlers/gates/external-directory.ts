@@ -97,11 +97,12 @@ function describeOneExternalDirectoryPath(
 }
 
 /**
- * Gate every distinct out-of-workspace *scope* a tool will touch.
+ * Gate every out-of-workspace path a tool will touch.
  *
- * Paths are normalized, lexical duplicates dropped by {@link getToolInputPaths},
- * then collapsed by the directory-scoped approval pattern so two files in the
- * same outside directory produce one ask. Inside-cwd paths are skipped.
+ * Lexical duplicates are already dropped by getToolInputPaths. Do not collapse
+ * by directory before the resolver: two files in the same folder can have
+ * different explicit allow/deny rules. Session approval still suppresses
+ * repeated asks after a human grant.
  */
 export function describeExternalDirectoryGates(
   tcc: ToolCallContext,
@@ -111,14 +112,8 @@ export function describeExternalDirectoryGates(
   extractors?: ToolAccessExtractorLookup,
 ): GateResult[] {
   const paths = getToolInputPaths(tcc.toolName, tcc.input, extractors);
-  const seenScopes = new Set<string>();
   const gates: GateResult[] = [];
   for (const raw of paths) {
-    if (!normalizer.isOutsideWorkingDirectory(raw)) continue;
-    const accessPath = normalizer.forPath(raw);
-    const scope = normalizer.approvalPatternFor(accessPath);
-    if (seenScopes.has(scope)) continue;
-    seenScopes.add(scope);
     const gate = describeOneExternalDirectoryPath(
       tcc,
       raw,

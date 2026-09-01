@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.3.6] - 2026-09-01
+
+### Fixed
+
+- Path gate now runs `describePathGates()` over every extracted path, so a later `.env` (or Move-to target) cannot hide behind an earlier allowed file.
+- `external_directory` no longer drops later files by directory-scoped approval pattern before the resolver. Same-directory `allow` + `deny` now evaluates both.
+
 ## [Unreleased]
 
 ### Fixed

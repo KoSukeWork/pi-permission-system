@@ -1,4 +1,4 @@
-import { getToolInputPath } from "#src/access-intent/tool-input-path";
+import { getToolInputPaths } from "#src/access-intent/tool-input-path";
 import type { PathNormalizer } from "#src/path-normalizer";
 import type { ScopedPermissionResolver } from "#src/permission-resolver";
 import { buildPathAskPayload } from "#src/presentation/path-ask-payload";
@@ -8,26 +8,15 @@ import type { GateDescriptor, GateResult } from "./descriptor";
 import { accessFactsFromPath } from "./helpers";
 import type { ToolCallContext } from "./types";
 
-/**
- * Build a pure descriptor for the cross-cutting path permission gate (tools).
- *
- * Returns `null` when the gate does not apply (tool is not path-bearing,
- * no extractable path, the `path` surface evaluates to `allow`, or no
- * explicit `path` rule matched — i.e. only the universal default fired).
- * Returns a `GateDescriptor` when the path matches a `deny` or `ask` rule.
- */
-export function describePathGate(
+function describeOnePathGate(
   tcc: ToolCallContext,
+  filePath: string,
   resolver: ScopedPermissionResolver,
   normalizer: PathNormalizer,
-  extractors?: ToolAccessExtractorLookup,
 ): GateResult {
-  const filePath = getToolInputPath(tcc.toolName, tcc.input, extractors);
-  if (!filePath) return null;
-
   // Emit an access-path intent so the resolver matches the lexical aliases
-  // *and* the canonical (symlink-resolved) form, the same set
-  // `external_directory` matches (#418, #486).
+  // and the canonical (symlink-resolved) form, the same set
+  // external_directory matches (#418, #486).
   const accessPath = normalizer.forPath(filePath);
   const check = resolver.resolve({
     kind: "access-path",
@@ -38,13 +27,11 @@ export function describePathGate(
 
   if (check.state === "allow") return null;
 
-  // No explicit path rule matched — only the universal default fired.
+  // No explicit path rule matched - only the universal default fired.
   // Skip the gate to preserve backward compatibility: configs without a
   // "path" key should not trigger path-level prompts (#58).
   if (check.matchedPattern === undefined) return null;
 
-  // Derive the approval pattern from the lexical absolute form so it matches
-  // the policy values a later call produces.
   const pattern = normalizer.approvalPatternFor(accessPath);
 
   const payload = buildPathAskPayload({
@@ -82,4 +69,40 @@ export function describePathGate(
   };
 
   return descriptor;
+}
+
+/**
+ * Gate every extracted path on the cross-cutting `path` surface.
+ * Lexical duplicates are already dropped by getToolInputPaths.
+ * Do not collapse by directory: a later `.env` must not hide behind an
+ * earlier allowed file in the same tree.
+ */
+export function describePathGates(
+  tcc: ToolCallContext,
+  resolver: ScopedPermissionResolver,
+  normalizer: PathNormalizer,
+  extractors?: ToolAccessExtractorLookup,
+): GateResult[] {
+  const paths = getToolInputPaths(tcc.toolName, tcc.input, extractors);
+  const gates: GateResult[] = [];
+  for (const filePath of paths) {
+    const gate = describeOnePathGate(tcc, filePath, resolver, normalizer);
+    if (gate) gates.push(gate);
+  }
+  return gates;
+}
+
+/**
+ * Single-path convenience for existing tests: first extracted path only.
+ * The tool-call pipeline uses describePathGates so a later path cannot hide.
+ */
+export function describePathGate(
+  tcc: ToolCallContext,
+  resolver: ScopedPermissionResolver,
+  normalizer: PathNormalizer,
+  extractors?: ToolAccessExtractorLookup,
+): GateResult {
+  const paths = getToolInputPaths(tcc.toolName, tcc.input, extractors);
+  if (paths.length === 0) return null;
+  return describeOnePathGate(tcc, paths[0], resolver, normalizer);
 }

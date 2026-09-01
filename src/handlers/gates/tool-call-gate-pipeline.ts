@@ -20,7 +20,7 @@ import { describeBashExternalDirectoryGate } from "./bash-external-directory";
 import { describeBashPathGate } from "./bash-path";
 import type { GateResult } from "./descriptor";
 import { describeExternalDirectoryGates } from "./external-directory";
-import { describePathGate } from "./path";
+import { describePathGates } from "./path";
 import type { GateRunner } from "./runner";
 import { describeSkillReadGate } from "./skill-read";
 import { describeToolGate, type ToolPathAccess } from "./tool";
@@ -107,7 +107,7 @@ export class ToolCallGatePipeline {
           this.inputs.getActiveSkillEntries(),
         ),
       () =>
-        describePathGate(tcc, this.resolver, normalizer, this.customExtractors),
+        describePathGates(tcc, this.resolver, normalizer, this.customExtractors),
       () =>
         describeExternalDirectoryGates(
           tcc,

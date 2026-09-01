@@ -68,7 +68,7 @@ describe("describeExternalDirectoryGates - multi-file extractors", () => {
     ]);
   });
 
-  it("emits one gate per distinct outside directory", () => {
+  it("emits one gate per outside path, including siblings in the same directory", () => {
     const gates = gatesFor([
       "/test/project/inside.txt",
       "/outside/a/x.txt",
@@ -78,11 +78,45 @@ describe("describeExternalDirectoryGates - multi-file extractors", () => {
     const values = gates.map((g) =>
       isGateDescriptor(g) ? g.decision.value : null,
     );
-    expect(values).toEqual(["/outside/a/x.txt", "/other/b/z.txt"]);
+    expect(values).toEqual([
+      "/outside/a/x.txt",
+      "/outside/a/y.txt",
+      "/other/b/z.txt",
+    ]);
   });
 
   it("returns no gates when every path stays inside the workspace", () => {
     expect(gatesFor(["src/a.ts", "src/b.ts"])).toEqual([]);
+  });
+
+  it("still resolves deny on a later file in the same outside directory", () => {
+    const resolver = makePathDispatchResolver(
+      {
+        "/outside/secret.txt": makeCheckResult({
+          state: "deny",
+          toolName: "external_directory",
+          matchedPattern: "/outside/secret.txt",
+        }),
+        "/outside/public.txt": makeCheckResult({
+          state: "allow",
+          toolName: "external_directory",
+          matchedPattern: "/outside/public.txt",
+        }),
+      },
+      makeCheckResult({ state: "ask", toolName: "external_directory" }),
+    );
+    const gates = describeExternalDirectoryGates(
+      makeTcc(),
+      [],
+      resolver,
+      new PathNormalizer(pathFlavorForPlatform(process.platform), CWD),
+      extractorsOf(["/outside/public.txt", "/outside/secret.txt"]),
+    );
+    expect(gates).toHaveLength(2);
+    const states = gates.map((g) =>
+      isGateDescriptor(g) ? g.preCheck.state : g && "action" in g ? g.action : null,
+    );
+    expect(states).toEqual(["allow", "deny"]);
   });
 });
 
@@ -109,6 +143,39 @@ describe("ToolCallGatePipeline - multi-file external_directory", () => {
       inputs,
       undefined,
       extractorsOf(["/test/project/inside.txt", "/denied/dir/secret.txt"]),
+    );
+
+    const result = await pipeline.evaluate(makeTcc(), runner);
+
+    expect(result.action).toBe("block");
+  });
+
+  it("blocks when a same-directory later file is denied", async () => {
+    const resolver = makePathDispatchResolver(
+      {
+        "/outside/public.txt": makeCheckResult({
+          state: "allow",
+          toolName: "external_directory",
+          matchedPattern: "/outside/public.txt",
+        }),
+        "/outside/secret.txt": makeCheckResult({
+          state: "deny",
+          toolName: "external_directory",
+          matchedPattern: "/outside/secret.txt",
+        }),
+      },
+      makeCheckResult({ state: "allow", toolName: "external_directory" }),
+    );
+    const inputs = makeGateInputs({
+      getPathNormalizer: () =>
+        new PathNormalizer(pathFlavorForPlatform(process.platform), CWD),
+    });
+    const { runner } = makeGateRunner();
+    const pipeline = new ToolCallGatePipeline(
+      resolver,
+      inputs,
+      undefined,
+      extractorsOf(["/outside/public.txt", "/outside/secret.txt"]),
     );
 
     const result = await pipeline.evaluate(makeTcc(), runner);
