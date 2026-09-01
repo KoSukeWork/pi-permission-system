@@ -93,10 +93,11 @@ describe("describePathGates - multi-file extractors", () => {
       isGateDescriptor(g) ? g.decision.value : null,
     );
     expect(values).toEqual([".env"]);
-    expect(isGateDescriptor(gates[0])).toBe(true);
-    if (isGateDescriptor(gates[0])) {
-      expect(gates[0].preCheck.state).toBe("ask");
-      expect(gates[0].preCheck.matchedPattern).toBe("*.env");
+    const [gate] = gates;
+    expect(isGateDescriptor(gate)).toBe(true);
+    if (gate && isGateDescriptor(gate)) {
+      expect(gate.preCheck?.state).toBe("ask");
+      expect(gate.preCheck?.matchedPattern).toBe("*.env");
     }
   });
 

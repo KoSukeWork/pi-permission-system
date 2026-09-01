@@ -1,6 +1,6 @@
 {
   "name": "@gotgenes/pi-permission-system",
-  "version": "26.3.6",
+  "version": "26.3.7",
   "description": "Permission enforcement extension for the Pi coding agent.",
   "type": "module",
   "exports": {
@@ -33,6 +33,7 @@
     "prepack": "pnpm run build:types",
     "gen:schema": "node --experimental-strip-types scripts/generate-permissions-schema.ts && biome format --write schemas/permissions.schema.json",
     "test": "vitest run",
+    "test:permission-paths": "vitest run test/access-intent/tool-input-path.test.ts test/handlers/gates/path-multi.test.ts test/handlers/gates/external-directory-multi.test.ts test/policy-loader.test.ts",
     "test:watch": "vitest",
     "verify:public-types": "bash scripts/verify-public-types.sh",
     "lint:md": "rumdl check *.md docs/**/*.md",

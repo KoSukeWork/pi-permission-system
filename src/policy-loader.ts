@@ -136,7 +136,7 @@ export interface PolicyLoaderOptions {
   globalMcpConfigPath?: string;
   mcpServerNames?: readonly string[];
   /** Packaged fallback used only when the user global config file is missing. */
-  packagedDefaultConfigPath?: string;
+  packagedDefaultConfigPath?: string | null;
 }
 
 // ---------------------------------------------------------------------------

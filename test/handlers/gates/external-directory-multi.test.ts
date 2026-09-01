@@ -114,7 +114,7 @@ describe("describeExternalDirectoryGates - multi-file extractors", () => {
     );
     expect(gates).toHaveLength(2);
     const states = gates.map((g) =>
-      isGateDescriptor(g) ? g.preCheck.state : g && "action" in g ? g.action : null,
+      isGateDescriptor(g) ? g.preCheck?.state : g && "action" in g ? g.action : null,
     );
     expect(states).toEqual(["allow", "deny"]);
   });

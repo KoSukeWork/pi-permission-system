@@ -170,6 +170,7 @@ pnpm run check       # Type-check TypeScript (no emit)
 pnpm run lint        # Biome + ESLint + lint:md
 pnpm run lint:md     # rumdl on README and docs
 pnpm run test        # Run tests from ./test
+pnpm run test:permission-paths # Run the focused cross-platform path/extractor suite
 pnpm run test:watch  # Run tests in watch mode
 ```
 
