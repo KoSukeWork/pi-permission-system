@@ -1,4 +1,4 @@
-import { getToolInputPath } from "#src/access-intent/tool-input-path";
+import { getToolInputPaths } from "#src/access-intent/tool-input-path";
 import type { PathNormalizer } from "#src/path-normalizer";
 import type { ScopedPermissionResolver } from "#src/permission-resolver";
 import { buildExternalDirectoryAskPayload } from "#src/presentation/path-ask-payload";
@@ -10,41 +10,24 @@ import { accessFactsFromPath } from "./helpers";
 import type { ToolCallContext } from "./types";
 
 /**
- * Build a pure descriptor for the external-directory permission gate.
- *
- * Returns `null` when the gate does not apply (no CWD, tool is not
- * path-bearing, or path is inside the working directory).
- * Returns a `GateBypass` for Pi infrastructure reads.
- * Returns a `GateDescriptor` for external paths needing a permission check.
+ * Build a descriptor for one already-known external path.
  */
-export function describeExternalDirectoryGate(
+function describeOneExternalDirectoryPath(
   tcc: ToolCallContext,
+  externalDirectoryPath: string,
   infraDirs: string[],
   resolver: ScopedPermissionResolver,
   normalizer: PathNormalizer,
-  extractors?: ToolAccessExtractorLookup,
 ): GateResult {
-  const externalDirectoryPath = getToolInputPath(
-    tcc.toolName,
-    tcc.input,
-    extractors,
-  );
-  if (!externalDirectoryPath) return null;
-
   if (!normalizer.isOutsideWorkingDirectory(externalDirectoryPath)) {
     return null;
   }
 
-  // The boundary decision (above) and the infrastructure-read containment
-  // check (below) use the canonical, symlink-resolved path; pattern matching
-  // uses the typed and resolved aliases (#418).
   const accessPath = normalizer.forPath(externalDirectoryPath);
 
-  // ── Pi infrastructure read bypass ──────────────────────────────────────
   if (normalizer.isInfrastructureRead(tcc.toolName, accessPath, infraDirs)) {
     return {
       action: "allow",
-      // Containment allowed this, not a rule the operator wrote.
       decidedBy: { kind: "infrastructure_read" },
       log: {
         event: "permission_request.infrastructure_auto_allowed",
@@ -68,10 +51,7 @@ export function describeExternalDirectoryGate(
     };
   }
 
-  // ── Build descriptor for permission check ───────────────────────────────
   const resolvedAlias = accessPath.resolvedAlias();
-
-  // The runner consumes this preCheck and skips its own resolve.
   const preCheck = resolveExternalDirectoryPolicy(
     accessPath,
     resolver,
@@ -114,4 +94,65 @@ export function describeExternalDirectoryGate(
       value: externalDirectoryPath,
     },
   };
+}
+
+/**
+ * Gate every distinct out-of-workspace *scope* a tool will touch.
+ *
+ * Paths are normalized, lexical duplicates dropped by {@link getToolInputPaths},
+ * then collapsed by the directory-scoped approval pattern so two files in the
+ * same outside directory produce one ask. Inside-cwd paths are skipped.
+ */
+export function describeExternalDirectoryGates(
+  tcc: ToolCallContext,
+  infraDirs: string[],
+  resolver: ScopedPermissionResolver,
+  normalizer: PathNormalizer,
+  extractors?: ToolAccessExtractorLookup,
+): GateResult[] {
+  const paths = getToolInputPaths(tcc.toolName, tcc.input, extractors);
+  const seenScopes = new Set<string>();
+  const gates: GateResult[] = [];
+  for (const raw of paths) {
+    if (!normalizer.isOutsideWorkingDirectory(raw)) continue;
+    const accessPath = normalizer.forPath(raw);
+    const scope = normalizer.approvalPatternFor(accessPath);
+    if (seenScopes.has(scope)) continue;
+    seenScopes.add(scope);
+    const gate = describeOneExternalDirectoryPath(
+      tcc,
+      raw,
+      infraDirs,
+      resolver,
+      normalizer,
+    );
+    if (gate) gates.push(gate);
+  }
+  return gates;
+}
+
+/**
+ * Build a pure descriptor for the external-directory permission gate.
+ *
+ * Single-path convenience used by existing tests: first extracted path, or
+ * `null` when the gate does not apply. The tool-call pipeline uses
+ * {@link describeExternalDirectoryGates} so a multi-file tool cannot hide a
+ * later outside path behind an inside first path.
+ */
+export function describeExternalDirectoryGate(
+  tcc: ToolCallContext,
+  infraDirs: string[],
+  resolver: ScopedPermissionResolver,
+  normalizer: PathNormalizer,
+  extractors?: ToolAccessExtractorLookup,
+): GateResult {
+  return (
+    describeExternalDirectoryGates(
+      tcc,
+      infraDirs,
+      resolver,
+      normalizer,
+      extractors,
+    )[0] ?? null
+  );
 }

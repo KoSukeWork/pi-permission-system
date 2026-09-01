@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   getPathBearingToolPath,
   getToolInputPath,
+  getToolInputPaths,
 } from "#src/access-intent/tool-input-path";
 import type { ToolAccessExtractorLookup } from "#src/tool-access-extractor-registry";
 
@@ -28,7 +29,7 @@ describe("getPathBearingToolPath", () => {
 describe("getToolInputPath", () => {
   function lookupOf(
     toolName: string,
-    extractor: (input: Record<string, unknown>) => string | undefined,
+    extractor: (input: Record<string, unknown>) => string | readonly string[] | undefined,
   ): ToolAccessExtractorLookup {
     return {
       get: (name) => (name === toolName ? extractor : undefined),
@@ -83,5 +84,45 @@ describe("getToolInputPath", () => {
   test("returns null when a registered extractor declines", () => {
     const extractors = lookupOf("ffgrep", () => undefined);
     expect(getToolInputPath("ffgrep", { target: "x" }, extractors)).toBeNull();
+  });
+});
+
+describe("getToolInputPaths", () => {
+  function lookupOf(
+    toolName: string,
+    extractor: (
+      input: Record<string, unknown>,
+    ) => string | readonly string[] | undefined,
+  ): ToolAccessExtractorLookup {
+    return {
+      get: (name) => (name === toolName ? extractor : undefined),
+    };
+  }
+
+  test("returns a single input.path as a one-element list", () => {
+    expect(getToolInputPaths("read", { path: "/src/foo.ts" })).toEqual([
+      "/src/foo.ts",
+    ]);
+  });
+
+  test("returns every path from a registered array extractor", () => {
+    const extractors = lookupOf("apply_patch", (input) =>
+      Array.isArray(input.paths) ? input.paths : undefined,
+    );
+    expect(
+      getToolInputPaths(
+        "apply_patch",
+        { paths: ["inside.txt", "../outside.txt", "inside.txt"] },
+        extractors,
+      ),
+    ).toEqual(["inside.txt", "../outside.txt"]);
+  });
+
+  test("getToolInputPath is the first extracted path", () => {
+    const extractors = lookupOf("apply_patch", () => [
+      "inside.txt",
+      "../outside.txt",
+    ]);
+    expect(getToolInputPath("apply_patch", {}, extractors)).toBe("inside.txt");
   });
 });

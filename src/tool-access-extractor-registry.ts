@@ -1,16 +1,20 @@
 /**
  * Registry for custom tool access-intent extractors.
  *
- * Lets sibling extensions declare the filesystem path a tool will access when
+ * Lets sibling extensions declare the filesystem path(s) a tool will access when
  * the tool's input shape is not the default `input.path` convention, so the
  * cross-cutting `path` and `external_directory` gates can see it.
  * One extractor per tool name; duplicate registration throws.
  */
 
-/** Returns the filesystem path this tool will access, or `undefined` to decline. */
+/**
+ * Returns the filesystem path or paths this tool will access, or `undefined`
+ * to decline. A multi-file tool (for example apply_patch) returns every path
+ * it will touch so `path` / `external_directory` gates can see them all.
+ */
 export type ToolAccessExtractor = (
   input: Record<string, unknown>,
-) => string | undefined;
+) => string | readonly string[] | undefined;
 
 /**
  * Read-only lookup used by the gate pipeline (ISP — exposes only the read

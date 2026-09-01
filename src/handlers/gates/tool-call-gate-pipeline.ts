@@ -19,7 +19,7 @@ import { resolveBashCommandCheck } from "./bash-command";
 import { describeBashExternalDirectoryGate } from "./bash-external-directory";
 import { describeBashPathGate } from "./bash-path";
 import type { GateResult } from "./descriptor";
-import { describeExternalDirectoryGate } from "./external-directory";
+import { describeExternalDirectoryGates } from "./external-directory";
 import { describePathGate } from "./path";
 import type { GateRunner } from "./runner";
 import { describeSkillReadGate } from "./skill-read";
@@ -99,7 +99,9 @@ export class ToolCallGatePipeline {
 
     const infraDirs = this.inputs.getInfrastructureReadDirs();
 
-    const gateProducers: Array<() => GateResult | Promise<GateResult>> = [
+    const gateProducers: Array<
+      () => GateResult | GateResult[] | Promise<GateResult | GateResult[]>
+    > = [
       () =>
         describeSkillReadGate(tcc, normalizer, () =>
           this.inputs.getActiveSkillEntries(),
@@ -107,7 +109,7 @@ export class ToolCallGatePipeline {
       () =>
         describePathGate(tcc, this.resolver, normalizer, this.customExtractors),
       () =>
-        describeExternalDirectoryGate(
+        describeExternalDirectoryGates(
           tcc,
           infraDirs,
           this.resolver,
@@ -142,9 +144,13 @@ export class ToolCallGatePipeline {
     ];
 
     for (const produce of gateProducers) {
-      const outcome = await runner.run(await produce(), tcc.agentName);
-      if (outcome.action === "block") {
-        return outcome;
+      const produced = await produce();
+      const gates = Array.isArray(produced) ? produced : [produced];
+      for (const gate of gates) {
+        const outcome = await runner.run(gate, tcc.agentName);
+        if (outcome.action === "block") {
+          return outcome;
+        }
       }
     }
 

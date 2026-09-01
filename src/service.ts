@@ -133,14 +133,14 @@ export interface PermissionsService extends PermissionQuery {
   /**
    * Register a custom access-intent extractor for a specific tool name.
    *
-   * The extractor declares the filesystem path a tool will access so the
+   * The extractor declares the filesystem path or paths a tool will access so the
    * cross-cutting `path` and `external_directory` gates can see it. Use it for
    * tools whose path lives under a non-standard key — built-in file tools and
    * any tool exposing `input.path` (plus MCP via `input.arguments.path`) are
    * already covered by convention without registration.
    *
-   * The extractor receives the raw `input` record and returns the path string,
-   * or `undefined` to decline. Only one extractor may be registered per tool
+   * The extractor receives the raw `input` record and returns a path string,
+   * a list of paths, or `undefined` to decline. Only one extractor may be registered per tool
    * name — a second call for the same name throws. The returned disposer
    * unregisters the extractor.
    *
