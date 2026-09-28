@@ -93,12 +93,15 @@ describe("classifyTokenAsPathCandidate", () => {
       );
     });
 
-    test("parent-traversal (contains ..) → returned as-is", () => {
+    test("parent-traversal (a whole .. segment) → returned as-is", () => {
       expect(classifyTokenAsPathCandidate("../../etc/passwd")).toBe(
         "../../etc/passwd",
       );
       expect(classifyTokenAsPathCandidate("../foo")).toBe("../foo");
       expect(classifyTokenAsPathCandidate("..")).toBe("..");
+      expect(classifyTokenAsPathCandidate("a/../b")).toBe("a/../b");
+      expect(classifyTokenAsPathCandidate("HEAD..origin/main")).toBeNull();
+      expect(classifyTokenAsPathCandidate("v1..v2")).toBeNull();
     });
 
     test("plain word with no path shape → null", () => {
@@ -236,11 +239,13 @@ describe("classifyTokenAsRuleCandidate", () => {
       );
     });
 
-    test("parent-traversal (contains ..) → returned as-is", () => {
+    test("parent-traversal (a whole .. segment) → returned as-is", () => {
       expect(classifyTokenAsRuleCandidate("../foo", posixPathFlavor)).toBe(
         "../foo",
       );
       expect(classifyTokenAsRuleCandidate("..", posixPathFlavor)).toBe("..");
+      expect(classifyTokenAsRuleCandidate("v1..v2", posixPathFlavor)).toBeNull();
+      expect(classifyTokenAsRuleCandidate("HEAD..origin/main", posixPathFlavor)).toBe("HEAD..origin/main");
     });
 
     test("dot-file (starts with .) → returned as-is", () => {
