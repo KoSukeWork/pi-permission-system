@@ -23,6 +23,51 @@ export class McpTargetList {
   }
 }
 
+/** Native Pi names are policy identities; arguments cannot override them. */
+export function createNativeMcpPermissionTargets(
+  toolName: string,
+  input: unknown,
+  configuredServerNames: readonly string[] = [],
+  nativeServerName?: string,
+): string[] {
+  const targets = new McpTargetList();
+  if (toolName.startsWith("mcp__")) {
+    targets.add(toolName);
+    // Prefer known names: a server name can itself contain double underscores.
+    const server =
+      nativeServerName ??
+      [...configuredServerNames]
+        .sort((a, b) => b.length - a.length)
+        .find((name) =>
+          toolName.startsWith(`mcp__${name.replace(/[^A-Za-z0-9_-]/g, "_")}__`),
+        );
+    const prefix = server
+      ? `mcp__${server.replace(/[^A-Za-z0-9_-]/g, "_")}__`
+      : undefined;
+    const parts = /^mcp__(.+?)__(.+)$/.exec(toolName);
+    const resolvedServer = server ?? parts?.[1];
+    const tool = prefix ? toolName.slice(prefix.length) : parts?.[2];
+    if (resolvedServer && tool) {
+      targets.add(`${resolvedServer}_${tool}`);
+      targets.add(`${resolvedServer}:${tool}`);
+    }
+    // Pi may shorten the entire name, including the separator after the server.
+    // The runtime namespace still supplies the exact server identity.
+    targets.add(resolvedServer ?? null);
+    if (tool) targets.add(tool);
+  } else {
+    // The native resource tools identify the selected server in their input.
+    const server = getNonEmptyString(toRecord(input).server);
+    if (server) {
+      targets.add(`${server}:${toolName}`);
+      targets.add(server);
+    }
+    targets.add(toolName);
+  }
+  targets.add("mcp_call");
+  return targets.toArray();
+}
+
 /**
  * Parse a qualified MCP tool name of the form `server:tool`.
  *
@@ -87,6 +132,15 @@ function pushMcpToolPermissionTargets(
   configuredServerNames: readonly string[],
   targets: McpTargetList,
 ): void {
+  if (rawReference.startsWith("mcp__")) {
+    for (const target of createNativeMcpPermissionTargets(
+      rawReference,
+      {},
+      configuredServerNames,
+    ))
+      targets.add(target);
+    return;
+  }
   const qualified = parseQualifiedMcpToolName(rawReference);
   const resolvedServer = serverHint ?? qualified?.server ?? null;
   const resolvedTool = qualified?.tool ?? rawReference;

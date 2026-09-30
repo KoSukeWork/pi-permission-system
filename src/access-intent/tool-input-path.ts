@@ -46,10 +46,15 @@ function extractedPaths(
       return [];
     case "path":
       return normalizeExtractedPaths(getNonEmptyString(record.path));
-    case "mcp":
+    case "mcp": {
+      const custom = extractors?.get(toolName);
+      if (custom) return normalizeExtractedPaths(custom(record));
       return normalizeExtractedPaths(
-        getNonEmptyString(toRecord(record.arguments).path),
+        getNonEmptyString(
+          (toolName === "mcp" ? toRecord(record.arguments) : record).path,
+        ),
       );
+    }
     case "skill":
     case "extension": {
       const custom = extractors?.get(toolName);
@@ -70,7 +75,7 @@ function extractedPaths(
  *
  * - bash: empty (bash has its own token-based path gates).
  * - Built-in path-bearing tools: input.path.
- * - mcp: input.arguments.path.
+ * - legacy mcp: input.arguments.path; native MCP: input.path or an extractor.
  * - Any other tool: a registered ToolAccessExtractor path list, else input.path.
  */
 export function getToolInputPaths(

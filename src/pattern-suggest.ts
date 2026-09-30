@@ -47,6 +47,9 @@ export function suggestBashPattern(command: string): string {
  */
 export function suggestMcpPattern(target: string): string {
   const trimmed = target.trim();
+  // Native names may be sanitized or truncated. Keep an exact grant rather
+  // than accidentally turning mcp__server__tool into the cross-server mcp_*.
+  if (trimmed.startsWith("mcp__")) return trimmed;
 
   const colonIndex = trimmed.indexOf(":");
   if (colonIndex > 0) {

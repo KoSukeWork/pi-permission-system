@@ -36,6 +36,8 @@ import type {
   PermissionState,
 } from "./types";
 import { isPermissionState } from "./types";
+import { getNonEmptyString, toRecord } from "./value-guards";
+import { wildcardMatch } from "./wildcard-matcher";
 
 const SPECIAL_PERMISSION_KEYS = new Set(["external_directory", "path"]);
 
@@ -108,12 +110,15 @@ export interface PermissionManagerOptions extends PolicyLoaderOptions {
    * yolo disabled.
    */
   isYoloEnabled?: () => boolean;
+  /** Exact native MCP server identity from the runtime tool namespace. */
+  getNativeMcpServerName?: (toolName: string) => string | undefined;
 }
 
 export class PermissionManager implements ScopedPermissionManager {
   private readonly agentDir: string | undefined;
   private readonly flavor: PathFlavor;
   private readonly isYoloEnabled: () => boolean;
+  private readonly getNativeMcpServerName: PermissionManagerOptions["getNativeMcpServerName"];
   private loader: PolicyLoader;
   private readonly resolvedPermissionsCache = new Map<
     string,
@@ -124,6 +129,7 @@ export class PermissionManager implements ScopedPermissionManager {
     this.agentDir = options.agentDir;
     this.flavor = options.flavor ?? posixPathFlavor;
     this.isYoloEnabled = options.isYoloEnabled ?? YOLO_DISABLED;
+    this.getNativeMcpServerName = options.getNativeMcpServerName;
     this.loader =
       options.policyLoader ??
       new FilePolicyLoader(
@@ -313,10 +319,17 @@ export class PermissionManager implements ScopedPermissionManager {
 
     // kind === "tool"
     const toolName = intent.surface.trim();
+    const nativeReference =
+      toolName === "mcp"
+        ? getNonEmptyString(toRecord(intent.input).tool)
+        : toolName;
     const { surface, values, resultExtras } = normalizeInput(
       toolName,
       intent.input,
       this.loader.getConfiguredMcpServerNames(),
+      nativeReference
+        ? this.getNativeMcpServerName?.(nativeReference)
+        : undefined,
     );
     return buildCheckResult(
       surface,
@@ -346,9 +359,21 @@ function buildCheckResult(
   fullRules: Ruleset,
   flavor: PathFlavor,
 ): PermissionCheckResult {
+  // Preserve native tool-name rules alongside the shared MCP policy surface.
+  const mcpIdentity = values[0]?.startsWith("mcp__")
+    ? values[0]
+    : normalizedToolName;
+  const matchRules =
+    surface === "mcp" && mcpIdentity !== "mcp"
+      ? fullRules.map((rule) =>
+          rule.surface !== "mcp" && wildcardMatch(rule.surface, mcpIdentity)
+            ? { ...rule, surface: "mcp" }
+            : rule,
+        )
+      : fullRules;
   const { rule, value } = PATH_SURFACES.has(surface)
-    ? evaluateAnyValue(surface, values, fullRules, flavor)
-    : evaluateFirst(surface, values, fullRules, flavor);
+    ? evaluateAnyValue(surface, values, matchRules, flavor)
+    : evaluateFirst(surface, values, matchRules, flavor);
 
   // For MCP, replace the normalizer's fallback target with the actual
   // matched candidate value so PermissionCheckResult.target is accurate.

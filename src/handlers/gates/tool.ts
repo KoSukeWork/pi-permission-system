@@ -73,7 +73,11 @@ export function describeToolGate(
   // `bash` surface — its session rule, decision value, and suggestion are
   // bash-shaped — while the invoked tool name is preserved in the prompt and
   // review log so a user sees which tool actually ran (#574).
-  const gateSurface = shell ? "bash" : tcc.toolName;
+  const gateSurface = shell
+    ? "bash"
+    : classifyToolKind(tcc.toolName) === "mcp"
+      ? "mcp"
+      : tcc.toolName;
 
   const permissionLogContext = formatter.getPermissionLogContext(
     check,

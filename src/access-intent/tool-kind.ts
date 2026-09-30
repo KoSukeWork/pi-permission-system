@@ -35,7 +35,14 @@ export type ToolKind = "bash" | "mcp" | "skill" | "path" | "extension";
 export function classifyToolKind(toolName: string): ToolKind {
   const name = toolName.trim();
   if (name === "bash") return "bash";
-  if (name === "mcp") return "mcp";
+  if (
+    name === "mcp" ||
+    name.startsWith("mcp__") ||
+    name === "list_mcp_resources" ||
+    name === "list_mcp_resource_templates" ||
+    name === "read_mcp_resource"
+  )
+    return "mcp";
   if (name === "skill") return "skill";
   if (PATH_BEARING_TOOLS.has(name)) return "path";
   return "extension";

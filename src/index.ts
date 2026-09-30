@@ -102,6 +102,16 @@ export default function piPermissionSystemExtension(pi: ExtensionAPI): void {
     agentDir,
     flavor: hostFlavor,
     isYoloEnabled,
+    getNativeMcpServerName: (toolName) => {
+      // Optional metadata keeps the fork compatible with pre-0.99 Pi hosts.
+      const tool = pi
+        .getAllTools()
+        .find((candidate) => candidate.name === toolName) as
+        | { namespace?: { name?: string } }
+        | undefined;
+      const namespace = tool?.namespace?.name;
+      return namespace?.startsWith("mcp__") ? namespace.slice(5) : undefined;
+    },
   });
 
   const logger = new PermissionSessionLogger({

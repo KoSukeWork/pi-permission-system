@@ -438,6 +438,14 @@ To deliberately opt into permissive bash, set `"bash": { "*": "allow" }` explici
 
 MCP permissions match against derived targets from tool input:
 
+Pi 0.99 native `mcp__<server>__<tool>` calls use the same `mcp` surface, including calls inside Code Mode scripts.
+Targets include the exact native name, `server:tool`, `server_tool`, the server, and `mcp_call`; argument fields named `server` or `tool` cannot change that identity.
+Prefer native-name patterns for tools whose names Pi has sanitized or shortened.
+Native tool-name permission surfaces also remain supported.
+Native MCP paths use `input.path` or a registered access extractor; the legacy proxy still uses `input.arguments.path`.
+Native resource helpers (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) also use MCP rules and include their selected server as a target.
+An approval for a native tool is stored on the `mcp` surface with its exact native name.
+
 | Target type       | Examples                                                              |
 | ----------------- | --------------------------------------------------------------------- |
 | Baseline ops      | `mcp_status`, `mcp_list`, `mcp_search`, `mcp_describe`, `mcp_connect` |

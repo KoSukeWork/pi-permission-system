@@ -2,7 +2,10 @@ import { stripBashCommentLines } from "#src/bash-arity";
 import type { PathNormalizer } from "#src/path-normalizer";
 import { getNonEmptyString, toRecord } from "#src/value-guards";
 import type { AccessIntent, ResolvedAccessIntent } from "./access-intent";
-import { createMcpPermissionTargets } from "./mcp-targets";
+import {
+  createMcpPermissionTargets,
+  createNativeMcpPermissionTargets,
+} from "./mcp-targets";
 import { PATH_SURFACES } from "./path-surfaces";
 import { classifyToolKind } from "./tool-kind";
 
@@ -96,6 +99,7 @@ function buildInputForSurface(
   if (surface === "bash") return { command: v };
   if (surface === "skill") return { name: v };
   if (surface === "external_directory") return { path: v };
+  if (surface === "mcp") return { tool: v };
   // MCP and tool surfaces: normalizeInput handles them from the surface alone.
   return {};
 }
@@ -139,6 +143,7 @@ export function normalizeInput(
   toolName: string,
   input: unknown,
   configuredMcpServerNames: readonly string[],
+  nativeServerName?: string,
 ): NormalizedInput {
   switch (classifyToolKind(toolName)) {
     // --- Skill ---
@@ -171,8 +176,17 @@ export function normalizeInput(
 
     // --- MCP ---
     case "mcp": {
+      const nativeReference =
+        toolName === "mcp" ? getNonEmptyString(toRecord(input).tool) : toolName;
       const mcpTargets = [
-        ...createMcpPermissionTargets(input, configuredMcpServerNames),
+        ...(toolName === "mcp" && !nativeReference?.startsWith("mcp__")
+          ? createMcpPermissionTargets(input, configuredMcpServerNames)
+          : createNativeMcpPermissionTargets(
+              nativeReference ?? toolName,
+              input,
+              configuredMcpServerNames,
+              nativeServerName,
+            )),
         "mcp",
       ];
       const fallbackTarget = mcpTargets[0] ?? "mcp";
