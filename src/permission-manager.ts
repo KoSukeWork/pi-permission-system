@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { ResolvedAccessIntent } from "./access-intent/access-intent";
 import { normalizeInput } from "./access-intent/input-normalizer";
+import { resolveNativeMcpServerName } from "./access-intent/mcp-targets";
 import { PATH_SURFACES } from "./access-intent/path-surfaces";
 import { classifyToolKind } from "./access-intent/tool-kind";
 import {
@@ -323,13 +324,19 @@ export class PermissionManager implements ScopedPermissionManager {
       toolName === "mcp"
         ? getNonEmptyString(toRecord(intent.input).tool)
         : toolName;
+    const configuredServerNames = this.loader.getConfiguredMcpServerNames();
+    const nativeServerName = nativeReference?.startsWith("mcp__")
+      ? resolveNativeMcpServerName(
+          nativeReference,
+          configuredServerNames,
+          this.getNativeMcpServerName?.(nativeReference),
+        )
+      : undefined;
     const { surface, values, resultExtras } = normalizeInput(
       toolName,
       intent.input,
-      this.loader.getConfiguredMcpServerNames(),
-      nativeReference
-        ? this.getNativeMcpServerName?.(nativeReference)
-        : undefined,
+      configuredServerNames,
+      nativeServerName,
     );
     return buildCheckResult(
       surface,
@@ -339,6 +346,7 @@ export class PermissionManager implements ScopedPermissionManager {
       intent.surface,
       fullRules,
       this.flavor,
+      nativeServerName,
     );
   }
 }
@@ -358,6 +366,7 @@ function buildCheckResult(
   toolName: string,
   fullRules: Ruleset,
   flavor: PathFlavor,
+  nativeServerName?: string,
 ): PermissionCheckResult {
   // Preserve native tool-name rules alongside the shared MCP policy surface.
   const mcpIdentity = values[0]?.startsWith("mcp__")
@@ -377,8 +386,15 @@ function buildCheckResult(
             rule.surface !== "mcp" && wildcardMatch(rule.surface, mcpIdentity)
               ? { ...rule, surface: "mcp" }
               : rule;
-          return nativeMcp && mapped.surface === "mcp"
-            ? { ...mapped, pattern: mapped.pattern.replace(/-/g, "_") }
+          return nativeMcp && nativeServerName && mapped.surface === "mcp"
+            ? {
+                ...mapped,
+                pattern: normalizeNativeMcpPattern(
+                  mapped.pattern,
+                  nativeServerName,
+                  mcpIdentity,
+                ),
+              }
             : mapped;
         })
       : fullRules;
@@ -407,6 +423,35 @@ function buildCheckResult(
     origin: rule.origin,
     ...extras,
   };
+}
+
+/** Fold server aliases only when their prefix names this tool's owner. */
+function normalizeNativeMcpPattern(
+  pattern: string,
+  serverName: string,
+  toolName: string,
+): string {
+  if (!pattern.includes("-")) return pattern;
+  const folded = pattern.replace(/-/g, "_");
+  const server = serverName.replace(/-/g, "_");
+  if (pattern.startsWith("mcp__")) {
+    return wildcardMatch(folded, toolName) ? folded : pattern;
+  }
+  const colon = pattern.indexOf(":");
+  if (colon >= 0) {
+    return wildcardMatch(folded.slice(0, colon), server) ? folded : pattern;
+  }
+  if (wildcardMatch(folded, server)) return folded;
+  // The '_' in a legacy server_tool alias is a separator, not a server '-'.
+  // Do not fold 'other-audit' into the aliases of the tool other/audit.
+  for (
+    let index = pattern.indexOf("_");
+    index >= 0;
+    index = pattern.indexOf("_", index + 1)
+  ) {
+    if (wildcardMatch(folded.slice(0, index), server)) return folded;
+  }
+  return pattern;
 }
 
 /**

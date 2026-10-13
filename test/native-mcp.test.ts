@@ -183,6 +183,67 @@ describe("Pi native MCP permissions", () => {
     }
   });
 
+  it.each([
+    ["exa-audit", "mcp__other__exa_audit"],
+    ["other-audit", "mcp__other__audit"],
+    ["*-audit", "mcp__other__exa_audit"],
+    ["exa-audit_health-check", "mcp__other__exa_audit_health_check"],
+  ])(
+    "does not expand %s to colliding aliases on another server",
+    (pattern, name) => {
+      for (const configured of [[], ["exa-audit", "other-audit", "other"]]) {
+        const manager = new PermissionManager({
+          policyLoader: createInMemoryPolicyLoader(
+            {
+              global: {
+                permission: { "*": "deny", mcp: { [pattern]: "allow" } },
+              },
+            },
+            configured,
+          ),
+          getNativeMcpServerName: () => "other",
+        });
+        for (const request of [
+          { kind: "tool" as const, surface: name, input: {} },
+          buildResolvedIntentFromMatchValues("mcp", [name], "child"),
+        ]) {
+          expect(manager.check(request).state).toBe("deny");
+        }
+      }
+    },
+  );
+
+  it.each([
+    "exa-audit_health-check",
+    "exa-audit:health-check",
+    "mcp__exa-audit__health_*",
+  ])(
+    "matches a qualified native rule %s only on its owning server",
+    (pattern) => {
+      const manager = new PermissionManager({
+        policyLoader: createInMemoryPolicyLoader({
+          global: { permission: { "*": "deny", mcp: { [pattern]: "allow" } } },
+        }),
+        getNativeMcpServerName: (name) =>
+          name.includes("__other__") ? "other" : "exa_audit",
+      });
+      expect(
+        manager.check({
+          kind: "tool",
+          surface: "mcp__exa_audit__health_check",
+          input: {},
+        }).state,
+      ).toBe("allow");
+      expect(
+        manager.check({
+          kind: "tool",
+          surface: "mcp__other__health_check",
+          input: {},
+        }).state,
+      ).toBe("deny");
+    },
+  );
+
   it("keeps rule ordering across hyphenated and normalized server aliases", () => {
     const name = "mcp__exa_audit__health_check";
     for (const [mcp, expected] of [

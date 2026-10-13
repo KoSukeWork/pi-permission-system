@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Match hyphenated MCP server permission rules against Pi's native namespaces, where `-` becomes `_`. Preserve the original configured server name in permission targets and audit records, and apply the same matching to project-only and extension-registered servers without changing legacy MCP matching, rule order, or exact-tool precedence.
+- Match hyphenated MCP server permission rules against Pi's native namespaces, where `-` becomes `_`. Preserve the original configured server name in permission targets and audit records, and apply the same matching to project-only and extension-registered servers without changing legacy MCP matching, rule order, or exact-tool precedence. Constrain alias folding to the owning server so names of unrelated tools or flattened tool aliases cannot acquire a server's allow rule.
 
 ## [26.3.8] - 2026-09-30
 

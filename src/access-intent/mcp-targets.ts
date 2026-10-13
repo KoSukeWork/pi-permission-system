@@ -34,15 +34,11 @@ export function createNativeMcpPermissionTargets(
   if (toolName.startsWith("mcp__")) {
     targets.add(toolName);
     // Prefer known names: a server name can itself contain double underscores.
-    const server =
-      [...configuredServerNames]
-        .sort((a, b) => b.length - a.length)
-        .find((name) =>
-          nativeServerName
-            ? normalizeNativeMcpName(name) ===
-              normalizeNativeMcpName(nativeServerName)
-            : toolName.startsWith(`mcp__${normalizeNativeMcpName(name)}__`),
-        ) ?? nativeServerName;
+    const server = resolveNativeMcpServerName(
+      toolName,
+      configuredServerNames,
+      nativeServerName,
+    );
     const prefix = server
       ? `mcp__${normalizeNativeMcpName(server)}__`
       : undefined;
@@ -72,6 +68,26 @@ export function createNativeMcpPermissionTargets(
   }
   targets.add("mcp_call");
   return targets.toArray();
+}
+
+/** Resolve the configured spelling while retaining runtime server ownership. */
+export function resolveNativeMcpServerName(
+  toolName: string,
+  configuredServerNames: readonly string[] = [],
+  nativeServerName?: string,
+): string | undefined {
+  return (
+    [...configuredServerNames]
+      .sort((a, b) => b.length - a.length)
+      .find((name) =>
+        nativeServerName
+          ? normalizeNativeMcpName(name) ===
+            normalizeNativeMcpName(nativeServerName)
+          : toolName.startsWith(`mcp__${normalizeNativeMcpName(name)}__`),
+      ) ??
+    nativeServerName ??
+    /^mcp__(.+?)__(.+)$/.exec(toolName)?.[1]
+  );
 }
 
 /** Pi sanitizes native names to identifiers, including replacing hyphens. */
