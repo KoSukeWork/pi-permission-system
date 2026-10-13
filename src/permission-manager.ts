@@ -110,7 +110,7 @@ export interface PermissionManagerOptions extends PolicyLoaderOptions {
    * yolo disabled.
    */
   isYoloEnabled?: () => boolean;
-  /** Exact native MCP server identity from the runtime tool namespace. */
+  /** Native MCP server identity from the runtime namespace (may be sanitized). */
   getNativeMcpServerName?: (toolName: string) => string | undefined;
 }
 
@@ -363,17 +363,30 @@ function buildCheckResult(
   const mcpIdentity = values[0]?.startsWith("mcp__")
     ? values[0]
     : normalizedToolName;
+  const nativeMcp = surface === "mcp" && mcpIdentity.startsWith("mcp__");
+  // Native Pi namespaces fold '-' into '_'. Match both spellings without
+  // needing a global config for project-only or extension-registered servers.
+  // Keep original rules and targets for permission prompts and audit records.
+  const matchValues = nativeMcp
+    ? values.map((value) => value.replace(/-/g, "_"))
+    : values;
   const matchRules =
     surface === "mcp" && mcpIdentity !== "mcp"
-      ? fullRules.map((rule) =>
-          rule.surface !== "mcp" && wildcardMatch(rule.surface, mcpIdentity)
-            ? { ...rule, surface: "mcp" }
-            : rule,
-        )
+      ? fullRules.map((rule) => {
+          const mapped =
+            rule.surface !== "mcp" && wildcardMatch(rule.surface, mcpIdentity)
+              ? { ...rule, surface: "mcp" }
+              : rule;
+          return nativeMcp && mapped.surface === "mcp"
+            ? { ...mapped, pattern: mapped.pattern.replace(/-/g, "_") }
+            : mapped;
+        })
       : fullRules;
-  const { rule, value } = PATH_SURFACES.has(surface)
-    ? evaluateAnyValue(surface, values, matchRules, flavor)
-    : evaluateFirst(surface, values, matchRules, flavor);
+  const { rule, value: matchValue } = PATH_SURFACES.has(surface)
+    ? evaluateAnyValue(surface, matchValues, matchRules, flavor)
+    : evaluateFirst(surface, matchValues, matchRules, flavor);
+  const originalRule = fullRules[matchRules.indexOf(rule)] ?? rule;
+  const value = values[matchValues.indexOf(matchValue)] ?? matchValue;
 
   // For MCP, replace the normalizer's fallback target with the actual
   // matched candidate value so PermissionCheckResult.target is accurate.
@@ -388,7 +401,7 @@ function buildCheckResult(
     reason: rule.reason,
     matchedPattern:
       rule.layer === "config" || rule.layer === "session"
-        ? rule.pattern
+        ? originalRule.pattern
         : undefined,
     source: deriveSource(rule, normalizedToolName),
     origin: rule.origin,

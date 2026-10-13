@@ -121,6 +121,8 @@ Project config (policy and runtime knobs) is loaded only once the project is tru
 
 Within a surface map like `bash` or `mcp`, **last matching rule wins** — put broad catch-alls first and specific overrides after.
 
+For native Pi MCP tools, use the server ID from `mcp.json` in server rules: `"mcp": { "exa-audit": "deny" }` gates tools in the `mcp__exa_audit` namespace. Native matching treats hyphens and underscores as equivalent, including qualified patterns such as `exa-audit:web_search_exa` and server globs such as `exa-*`; the original configured pattern is retained in prompts and audit records. This also applies to project-only and extension-registered servers. Exact native tool rules still take priority over server rules, and legacy `mcp` proxy calls retain their original matching semantics.
+
 The optional `shellTools` field records which non-`bash` tools carry shell semantics (e.g. an `exec_command` tool that replaces native `bash`), so they are gated at full parity with native `bash` — see [docs/configuration.md](docs/configuration.md#shelltools--gating-aliased-shell-tools).
 
 The optional `authorizerChain` field names registered case-by-case decision links (e.g. a light model judge) to consult when a request lands on `ask`, ahead of the interactive prompt.

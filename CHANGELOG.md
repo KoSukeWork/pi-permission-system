@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.3.9] - 2026-10-13
+
+### Fixed
+
+- Match hyphenated MCP server permission rules against Pi's native namespaces, where `-` becomes `_`. Preserve the original configured server name in permission targets and audit records, and apply the same matching to project-only and extension-registered servers without changing legacy MCP matching, rule order, or exact-tool precedence.
+
 ## [26.3.8] - 2026-09-30
 
 ### Fixed

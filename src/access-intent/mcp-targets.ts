@@ -35,18 +35,24 @@ export function createNativeMcpPermissionTargets(
     targets.add(toolName);
     // Prefer known names: a server name can itself contain double underscores.
     const server =
-      nativeServerName ??
       [...configuredServerNames]
         .sort((a, b) => b.length - a.length)
         .find((name) =>
-          toolName.startsWith(`mcp__${name.replace(/[^A-Za-z0-9_-]/g, "_")}__`),
-        );
+          nativeServerName
+            ? normalizeNativeMcpName(name) ===
+              normalizeNativeMcpName(nativeServerName)
+            : toolName.startsWith(`mcp__${normalizeNativeMcpName(name)}__`),
+        ) ?? nativeServerName;
     const prefix = server
-      ? `mcp__${server.replace(/[^A-Za-z0-9_-]/g, "_")}__`
+      ? `mcp__${normalizeNativeMcpName(server)}__`
       : undefined;
     const parts = /^mcp__(.+?)__(.+)$/.exec(toolName);
     const resolvedServer = server ?? parts?.[1];
-    const tool = prefix ? toolName.slice(prefix.length) : parts?.[2];
+    const tool = prefix
+      ? toolName.startsWith(prefix)
+        ? toolName.slice(prefix.length)
+        : undefined
+      : parts?.[2];
     if (resolvedServer && tool) {
       targets.add(`${resolvedServer}_${tool}`);
       targets.add(`${resolvedServer}:${tool}`);
@@ -66,6 +72,11 @@ export function createNativeMcpPermissionTargets(
   }
   targets.add("mcp_call");
   return targets.toArray();
+}
+
+/** Pi sanitizes native names to identifiers, including replacing hyphens. */
+function normalizeNativeMcpName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 /**
